@@ -4,14 +4,13 @@ on:
     branches: [ master ]
     tags:
       - '**'
-  workflow_dispatch:  # 允许手动触发工作流
 
 concurrency: 
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
-  REGISTRY_IMAGE: docker.io/keyonjeanli78/subconverter  # Docker Hub 仓库
+  REGISTRY_IMAGE: keyonjeanli78/subconverter
 
 jobs:
   build:
@@ -23,9 +22,9 @@ jobs:
           - platform: linux/386
             os: ubuntu-latest
           - platform: linux/arm/v7
-            os: ubuntu-latest
+            os: [self-hosted, linux, ARM]
           - platform: linux/arm64
-            os: ubuntu-latest
+            os: [self-hosted, linux, ARM64]
     runs-on: ${{ matrix.os }}
     name: Build ${{ matrix.platform }} Image
     steps:
@@ -33,7 +32,7 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV    
-
+               
       - name: Checkout base
         uses: actions/checkout@v4
         with:
@@ -51,12 +50,11 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: login to Docker Hub
+      - name: Docker login
         uses: docker/login-action@v3
         with:
-          registry: docker.io
-          username: ${{ secrets.DOCKER_USERNAME }}  # Docker Hub 用户名
-          password: ${{ secrets.DOCKER_PASSWORD }}  # Docker Hub 密码
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Get commit SHA
         if: github.ref == 'refs/heads/master'
@@ -113,19 +111,18 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: login to Docker Hub
+      - name: Docker login
         uses: docker/login-action@v3
         with:
-          registry: docker.io
-          username: ${{ secrets.DOCKER_USERNAME }}  # Docker Hub 用户名
-          password: ${{ secrets.DOCKER_PASSWORD }}  # Docker Hub 密码
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)      
-
+    
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
