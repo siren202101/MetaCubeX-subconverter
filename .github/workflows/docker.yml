@@ -1,21 +1,17 @@
 name: Publish Docker Image
-
-on: 
-  workflow_dispatch:
-    inputs:
-      manual:
-        description: '手动触发一次编译'
+on:
   push:
     branches: [ master ]
     tags:
       - '**'
 
-concurrency: 
+concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
-  REGISTRY_IMAGE: keyonjeanli78/subconverter
+  # 修改为推送到 GitHub Container Registry (ghcr.io) 的镜像
+  REGISTRY_IMAGE: ghcr.io/keyonjeanli78/subconverter
 
 jobs:
   build:
@@ -36,8 +32,8 @@ jobs:
       - name: Prepare
         run: |
           platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV    
-               
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
       - name: Checkout base
         uses: actions/checkout@v4
         with:
@@ -55,12 +51,12 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Login to DockerHub
+      - name: login to ghcr.io
         uses: docker/login-action@v3
         with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get commit SHA
         if: github.ref == 'refs/heads/master'
@@ -117,18 +113,18 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Login to DockerHub
+      - name: login to ghcr.io
         uses: docker/login-action@v3
         with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)      
 
       - name: Inspect image
         run: |
