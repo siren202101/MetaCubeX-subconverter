@@ -1,0 +1,20 @@
+app = "MetaCubeX-subconverter"
+primary_region = "hkg"  # 你选择的区域，比如香港
+
+[build]
+  dockerfile = "scripts/Dockerfile"
+
+[env]
+  PORT = "25500"  # subconverter默认25500，Fly默认8080，你要自己设置PORT
+
+[[services]]
+  internal_port = 25500
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
